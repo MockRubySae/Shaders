@@ -22,7 +22,7 @@ Shader "Custom/Water"
 
         CGPROGRAM
         #pragma surface surf Standard fullforwardshadows alpha vertex:vert 
-        
+         #include "UnityCG.cginc"
         #pragma target 3.0
 
         sampler2D _NormalTex1;
