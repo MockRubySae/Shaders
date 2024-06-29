@@ -38,7 +38,6 @@ Shader "Unlit/ToonShader"
             "UniversalMaterialType" = "Unlit"
             "RenderPipeline" = "UniversalPipeline"
         }
-        LOD 100
 
         // -------------------------------------
         // Render State Commands
@@ -47,72 +46,17 @@ Shader "Unlit/ToonShader"
         Cull [_Cull]
         Pass
         {
-            HLSLPROGRAM
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-            #pragma vertex vert
-            #pragma fragment frag
-            #pragma multi_compile_fog
-            struct AppData
-            {
-                float4 positionObj : POSITION;
-                half3 normal : NORMAL;
-                float2 uv : TEXCOORD0;
-            };
-
-            struct v2f
-            {
-                float4 screemPos : SV_POSITION;
-                half3 normal : TEXCOORD0;
-                half3 worldPos : TEXCOORD1;
-                half3 viewDir : TEXCOORD2;
-                float2 uv : TEXCOORD3;
-            };
-            
-            sampler2D _BaseMap;
-            float4 _BaseMap_ST;
-            half3 _BaseColor;
-            v2f vert (AppData IN)
-            {
-                v2f o;
-
-                o.screemPos = TransformObjectToHClip(IN.positionObj.xyz);
-                o.normal = TransformObjectToWorldNormal(IN.normal);
-                o.worldPos = mul(unity_ObjectToWorld, IN.positionObj);
-                o.viewDir = normalize(GetWorldSpaceViewDir(o.worldPos));
-                o.uv = TRANSFORM_TEX(IN.uv, _BaseMap);
-                return o;
-            };
-
-            half4 frag(v2f IN) : SV_Target
-            {
-                float dorProduct = dot(IN.normal, IN.viewDir);
-                dorProduct = step(0.3, dorProduct);
-                half3 col = tex2D(_BaseMap, IN.uv);
-                half3 colour = (_BaseColor.rgb);
-                half3 finalColour = col * colour * dorProduct;
-                return half4(finalColour,1);
-            };
-            
-            ENDHLSL
-        }
-        Pass
-        {
-            Name "Unlit"
-
+            Name "Toon"
             // -------------------------------------
             // Render State Commands
             AlphaToMask[_AlphaToMask]
 
             HLSLPROGRAM
-            #pragma target 2.0
-
-            // -------------------------------------
-            // Shader Stages
-            #pragma vertex UnlitPassVertex
-            #pragma fragment UnlitPassFragment
-
-            // -------------------------------------
-            // Material Keywords
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma multi_compile_fog
+             // Material Keywords
             #pragma shader_feature_local_fragment _SURFACE_TYPE_TRANSPARENT
             #pragma shader_feature_local_fragment _ALPHATEST_ON
             #pragma shader_feature_local_fragment _ALPHAMODULATE_ON
@@ -131,174 +75,56 @@ Shader "Unlit/ToonShader"
             #pragma multi_compile_instancing
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
-            // -------------------------------------
-            // Includes
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/UnlitInput.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/UnlitForwardPass.hlsl"
-            ENDHLSL
-        }
-
-        // Fill GBuffer data to prevent "holes", just in case someone wants to reuse GBuffer for non-lighting effects.
-        // Deferred lighting is stenciled out.
-        Pass
-        {
-            Name "GBuffer"
-            Tags
+            // toon shader code
+            struct AppData
             {
-                "LightMode" = "UniversalGBuffer"
-            }
+                float4 positionObj : POSITION;
+                half3 normal : NORMAL;
+                float2 uv : TEXCOORD0;
+            };
 
-            HLSLPROGRAM
-            #pragma target 4.5
+            struct v2f
+            {
+                float4 screemPos : SV_POSITION;
+                half3 normal : TEXCOORD0;
+                half3 worldPos : TEXCOORD1;
+                half3 viewDir : TEXCOORD2;
+                float2 uv : TEXCOORD3;
+            };
+            
+            sampler2D _BaseMap;
+            float4 _BaseMap_ST;
+            half4 _BaseColor;
+            v2f vert (AppData IN)
+            {
+                v2f o;
 
-            // Deferred Rendering Path does not support the OpenGL-based graphics API:
-            // Desktop OpenGL, OpenGL ES 3.0, WebGL 2.0.
-            #pragma exclude_renderers gles3 glcore
+                o.screemPos = TransformObjectToHClip(IN.positionObj.xyz);
+                o.normal = TransformObjectToWorldNormal(IN.normal);
+                o.worldPos = mul(unity_ObjectToWorld, IN.positionObj);
+                o.viewDir = normalize(GetWorldSpaceViewDir(o.worldPos));
+                o.uv = TRANSFORM_TEX(IN.uv, _BaseMap);
+                return o;
+            };
 
-            // -------------------------------------
-            // Shader Stages
-            #pragma vertex UnlitPassVertex
-            #pragma fragment UnlitPassFragment
-
-            // -------------------------------------
-            // Material Keywords
-            #pragma shader_feature_local_fragment _ALPHATEST_ON
-            #pragma shader_feature_local_fragment _ALPHAMODULATE_ON
-
-            // -------------------------------------
-            // Unity defined keywords
-            #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
-            #pragma multi_compile_fragment _ _DBUFFER_MRT1 _DBUFFER_MRT2 _DBUFFER_MRT3
-            #pragma multi_compile_fragment _ LOD_FADE_CROSSFADE
-            #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
-            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
-
+            half4 frag(v2f IN) : SV_Target
+            {
+                float dorProduct = dot(IN.normal, IN.viewDir);
+                dorProduct = step(0.3, dorProduct);
+                half4 col = tex2D(_BaseMap, IN.uv);
+                half4 colour = (_BaseColor.rgba);
+                half4 finalColour = col * colour * dorProduct;
+                return half4(finalColour);
+            };
+            
+            
             //--------------------------------------
             // GPU Instancing
             #pragma multi_compile_instancing
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
-
-            // -------------------------------------
-            // Includes
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/UnlitInput.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/UnlitGBufferPass.hlsl"
             ENDHLSL
         }
-
-        Pass
-        {
-            Name "DepthOnly"
-            Tags
-            {
-                "LightMode" = "DepthOnly"
-            }
-
-            // -------------------------------------
-            // Render State Commands
-            ZWrite On
-            ColorMask R
-
-            HLSLPROGRAM
-            #pragma target 2.0
-
-            // -------------------------------------
-            // Shader Stages
-            #pragma vertex DepthOnlyVertex
-            #pragma fragment DepthOnlyFragment
-
-            // -------------------------------------
-            // Material Keywords
-            #pragma shader_feature_local _ALPHATEST_ON
-
-            // -------------------------------------
-            // Unity defined keywords
-            #pragma multi_compile_fragment _ LOD_FADE_CROSSFADE
-
-            //--------------------------------------
-            // GPU Instancing
-            #pragma multi_compile_instancing
-            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
-
-            // -------------------------------------
-            // Includes
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/UnlitInput.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/DepthOnlyPass.hlsl"
-            ENDHLSL
-        }
-
-        Pass
-        {
-            Name "DepthNormalsOnly"
-            Tags
-            {
-                "LightMode" = "DepthNormalsOnly"
-            }
-
-            // -------------------------------------
-            // Render State Commands
-            ZWrite On
-
-            HLSLPROGRAM
-            #pragma target 2.0
-
-            // -------------------------------------
-            // Shader Stages
-            #pragma vertex DepthNormalsVertex
-            #pragma fragment DepthNormalsFragment
-
-            // -------------------------------------
-            // Material Keywords
-            #pragma shader_feature_local _ALPHATEST_ON
-
-            // -------------------------------------
-            // Universal Pipeline keywords
-            #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT // forward-only variant
-            #pragma multi_compile_fragment _ LOD_FADE_CROSSFADE
-            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
-
-            //--------------------------------------
-            // GPU Instancing
-            #pragma multi_compile_instancing
-            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
-
-            // -------------------------------------
-            // Includes
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/UnlitInput.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/UnlitDepthNormalsPass.hlsl"
-            ENDHLSL
-        }
-
-        // This pass it not used during regular rendering, only for lightmap baking.
-        Pass
-        {
-            Name "Meta"
-            Tags
-            {
-                "LightMode" = "Meta"
-            }
-
-            // -------------------------------------
-            // Render State Commands
-            Cull Off
-
-            HLSLPROGRAM
-            #pragma target 2.0
-
-            // -------------------------------------
-            // Shader Stages
-            #pragma vertex UniversalVertexMeta
-            #pragma fragment UniversalFragmentMetaUnlit
-
-            // -------------------------------------
-            // Unity defined keywords
-            #pragma shader_feature EDITOR_VISUALIZATION
-
-            // -------------------------------------
-            // Includes
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/UnlitInput.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/UnlitMetaPass.hlsl"
-            ENDHLSL
-        }
+        
     }
 
     FallBack "Hidden/Universal Render Pipeline/FallbackError"
