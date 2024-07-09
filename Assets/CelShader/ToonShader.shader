@@ -69,44 +69,68 @@ Shader "Unlit/ToonShader"
             #pragma multi_compile_instancing
 
             // toon shader code
+            // Define input structure for vertex shader
             struct AppData
             {
-                float4 positionObj : POSITION;
-                half3 normal : NORMAL;
-                float2 uv : TEXCOORD0;
+                float4 positionObj : POSITION; // Object space position
+                half3 normal : NORMAL; // Object space normal
+                float2 uv : TEXCOORD0; // Texture coordinates
             };
 
+            // Define output structure for vertex shader
             struct v2f
             {
-                float4 screemPos : SV_POSITION;
-                half3 normal : TEXCOORD0;
-                half3 worldPos : TEXCOORD1;
-                half3 viewDir : TEXCOORD2;
-                float2 uv : TEXCOORD3;
+                float4 screemPos : SV_POSITION; // Screen space position
+                half3 normal : TEXCOORD0; // Interpolated normal
+                half3 worldPos : TEXCOORD1; // World space position
+                half3 viewDir : TEXCOORD2; // View direction
+                float2 uv : TEXCOORD3; // Interpolated texture coordinates
             };
-            
-            sampler2D _BaseMap;
-            float4 _BaseMap_ST;
-            half4 _BaseColor;
+
+            // Define shader properties
+            sampler2D _BaseMap; // Main texture
+            float4 _BaseMap_ST; // Texture tiling and offset
+            half4 _BaseColor; // Base color
+
+            // Vertex shader function
             v2f vert (AppData IN)
             {
                 v2f o;
 
+                // Transform object position to homogeneous clip space
                 o.screemPos = TransformObjectToHClip(IN.positionObj.xyz);
+
+                // Transform object normal to world space
                 o.normal = TransformObjectToWorldNormal(IN.normal);
+
+                // Calculate world space position
                 o.worldPos = mul(unity_ObjectToWorld, IN.positionObj);
+
+                // Calculate view direction
                 o.viewDir = normalize(GetWorldSpaceViewDir(o.worldPos));
+
+                // Transform texture coordinates
                 o.uv = TRANSFORM_TEX(IN.uv, _BaseMap);
+
                 return o;
             };
 
+            // Fragment shader function
             half4 frag(v2f IN) : SV_Target
             {
+                // Calculate dot product between normal and view direction
                 float dorProduct = dot(IN.normal, IN.viewDir);
                 dorProduct = step(0.3, dorProduct);
+
+                // Sample main texture
                 half4 col = tex2D(_BaseMap, IN.uv);
+
+                // Apply base color
                 half4 colour = (_BaseColor.rgba);
+
+                // Final color calculation
                 half4 finalColour = col * colour * dorProduct;
+
                 return half4(finalColour);
             };
             
