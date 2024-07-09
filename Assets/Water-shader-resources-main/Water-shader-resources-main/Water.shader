@@ -40,45 +40,55 @@ Shader "Custom/Water"
         half _Metallic;
         fixed4 _Color;
         
+        // Define the Input struct to hold input data for the shader
         struct Input
         {
-            float2 uv_NormalTex1;
-            float4 screenPos;
-            float eyeDepth;
+            float2 uv_NormalTex1; // UV coordinates for normal texture 1
+            float4 screenPos; // Screen position
+            float eyeDepth; // Eye depth
         };
 
+        // Vertex shader function to manipulate vertices
         void vert (inout appdata_full v, out Input o)
         {
+            // Calculate NoiseUV based on texture coordinates, time, speed, and scale
             float2 NoiseUV = float2(v.texcoord.xy + _Time * _Speed * _Scale);
+            // Calculate NoiseValue using Noise texture and amplitude
             float NoiseValue = tex2Dlod(_NoiseTex, float4(NoiseUV, 0, 0)).x * _Amplitude;
 
+            // Modify vertex position by adding noise
             v.vertex = v.vertex + float4(0, NoiseValue, 0, 0);
 
+            // Initialize the output struct
             UNITY_INITIALIZE_OUTPUT(Input, o);
+            // Compute eye depth
             COMPUTE_EYEDEPTH(o.eyeDepth);
         }
+
+        // Surface shader function to define surface properties
         void surf (Input IN, inout SurfaceOutputStandard o)
         {
+            // Set the base color from _Color property
             fixed4 c =  _Color;
-            o.Albedo = c.rgb;
-            o.Metallic = _Metallic;
-            o.Smoothness = _Glossiness;
+            o.Albedo = c.rgb; // Set surface albedo
+            o.Metallic = _Metallic; // Set metallic property
+            o.Smoothness = _Glossiness; // Set smoothness property
             
+            // Sample depth texture and calculate fade based on transparency
             float rawZ = SAMPLE_DEPTH_TEXTURE_PROJ(_CameraDepthTexture, UNITY_PROJ_COORD(IN.screenPos));
             float camZ = LinearEyeDepth(rawZ);
             float originalZ = IN.eyeDepth;
-
             float fade = saturate(_Transparentcy * (camZ - originalZ));
 
-            o.Alpha = fade * 0.5;
+            o.Alpha = fade * 0.5; // Set alpha value based on fade
 
-            
+            // Calculate modified normals based on texture coordinates and time
             float normalX = IN.uv_NormalTex1.x + sin(_Time) * 5;
             float normalY = IN.uv_NormalTex1.y + sin(_Time) * 5;
-
             float2 normal1 = float2(normalX, IN.uv_NormalTex1.y);
             float2 normal2 = float2(IN.uv_NormalTex1.x, normalY);
             
+            // Set the final normal value based on texture sampling and properties
             o.Normal = UnpackNormal((tex2D(_NormalTex1, normal1) + tex2D(_NormalTex2, normal2)) * _NormalStrength * fade);
         }
         ENDCG
